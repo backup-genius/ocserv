@@ -209,6 +209,7 @@ Restart_ocserv(){
 	check_installed_status
 	check_pid
 	[[ ! -z ${PID} ]] && /etc/init.d/ocserv stop
+	sleep 3s
 	/etc/init.d/ocserv start
 	sleep 2s
 	check_pid

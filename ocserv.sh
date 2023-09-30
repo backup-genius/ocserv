@@ -223,7 +223,9 @@ Set_ocserv(){
 	set_tcp_port=$(cat ${conf}|grep "tcp-port ="|awk -F ' = ' '{print $NF}')
 	set_udp_port=$(cat ${conf}|grep "udp-port ="|awk -F ' = ' '{print $NF}')
 	Del_iptables
+	sleep 1s
 	Add_iptables
+	sleep 1s
 	Save_iptables
 	echo "是否重启 ocserv ? (Y/n)"
 	read -e -p "(默认: Y):" yn

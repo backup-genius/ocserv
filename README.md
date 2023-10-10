@@ -3,7 +3,8 @@ OpenConnect Server (ocserv) one-click installation script forked from doub.io ba
 
 ### Get Started
 Executive this:
-```sudo wget -N --no-check-certificate https://github.com/spectatorzhang/ocserv/raw/master/ocserv.sh && chmod +x ocserv.sh && bash ocserv.sh```
+
+`sudo wget -N --no-check-certificate https://github.com/spectatorzhang/ocserv/raw/master/ocserv.sh && chmod +x ocserv.sh && bash ocserv.sh`
 
 ### What's changed?
 - Update OCSERV version to the latest one

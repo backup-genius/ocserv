@@ -90,10 +90,10 @@ Download_ocserv(){
 		# Set the conf_file variable based on user input
 		case $conf_choice in
 			1)
-				conf_file="ocserv.conf"
+				conf_url="https://raw.githubusercontent.com/spectatorzhang/ocserv/master/ocserv.conf"
 				;;
 			2)
-				conf_file="ocserv-all.conf"
+				conf_url="https://raw.githubusercontent.com/spectatorzhang/ocserv/master/ocserv-all.conf"
 				;;
 			*)
 				echo -e "${Error} 无效的选择，请输入 1 或 2."
@@ -102,13 +102,19 @@ Download_ocserv(){
 		esac
 
 		# Create directory for config and download the chosen file
-		mkdir "${conf_file%.*}"  # Create a directory using the config file name
-		wget --no-check-certificate -N -P "${conf_file%.*}" "https://raw.githubusercontent.com/spectatorzhang/ocserv/master/$conf_file"
-		[[ ! -s "${conf_file%.*}/$conf_file" ]] && echo -e "${Error} ocserv 配置文件下载失败 !" && rm -rf "${conf_file%.*}" && exit 1
+		mkdir "${conf_file}"
+		wget --no-check-certificate -N -P "${conf_file}" "$conf_url"
+
+		# Ensure the file is renamed to ocserv.conf regardless of the choice
+		mv "${conf_file}/$(basename $conf_url)" "${conf_file}/ocserv.conf"
+
+		# Verify if the renamed file exists and is valid
+		[[ ! -s "${conf_file}/ocserv.conf" ]] && echo -e "${Error} ocserv 配置文件下载失败 !" && rm -rf "${conf_file}" && exit 1
 	else
 		echo -e "${Error} ocserv 编译安装失败，请检查！" && exit 1
 	fi
 }
+
 
 Service_ocserv(){
 	if ! wget --no-check-certificate https://raw.githubusercontent.com/spectatorzhang/ocserv/master/ocserv_debian -O /etc/init.d/ocserv; then

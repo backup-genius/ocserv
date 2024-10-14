@@ -69,7 +69,8 @@ Get_ip(){
 		fi
 	fi
 }
-Download_ocserv(){
+
+Download_ocserv(){ 
 	mkdir "ocserv" && cd "ocserv"
 	wget "ftp://ftp.infradead.org/pub/ocserv/ocserv-${ocserv_ver}.tar.xz"
 	[[ ! -s "ocserv-${ocserv_ver}.tar.xz" ]] && echo -e "${Error} ocserv 源码文件下载失败 !" && rm -rf "ocserv/" && rm -rf "ocserv-${ocserv_ver}.tar.xz" && exit 1
@@ -79,15 +80,36 @@ Download_ocserv(){
 	make install
 	cd .. && cd ..
 	rm -rf ocserv/
-	
+
+	# Check if the installation was successful
 	if [[ -e ${file} ]]; then
-		mkdir "${conf_file}"
-		wget --no-check-certificate -N -P "${conf_file}" "https://raw.githubusercontent.com/spectatorzhang/ocserv/master/ocserv.conf"
-		[[ ! -s "${conf}" ]] && echo -e "${Error} ocserv 配置文件下载失败 !" && rm -rf "${conf_file}" && exit 1
+		# Ask the user which configuration file to use
+		echo -e "请选择配置文件类型:\n1. 普通配置 (normal conf)\n2. 完整配置 (all conf)"
+		read -p "请输入数字 (1 或 2): " conf_choice
+
+		# Set the conf_file variable based on user input
+		case $conf_choice in
+			1)
+				conf_file="ocserv.conf"
+				;;
+			2)
+				conf_file="ocserv-all.conf"
+				;;
+			*)
+				echo -e "${Error} 无效的选择，请输入 1 或 2."
+				exit 1
+				;;
+		esac
+
+		# Create directory for config and download the chosen file
+		mkdir "${conf_file%.*}"  # Create a directory using the config file name
+		wget --no-check-certificate -N -P "${conf_file%.*}" "https://raw.githubusercontent.com/spectatorzhang/ocserv/master/$conf_file"
+		[[ ! -s "${conf_file%.*}/$conf_file" ]] && echo -e "${Error} ocserv 配置文件下载失败 !" && rm -rf "${conf_file%.*}" && exit 1
 	else
 		echo -e "${Error} ocserv 编译安装失败，请检查！" && exit 1
 	fi
 }
+
 Service_ocserv(){
 	if ! wget --no-check-certificate https://raw.githubusercontent.com/spectatorzhang/ocserv/master/ocserv_debian -O /etc/init.d/ocserv; then
 		echo -e "${Error} ocserv 服务 管理脚本下载失败 !" && over

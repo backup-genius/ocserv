@@ -172,29 +172,37 @@ tls_www_server' > server.tmpl
 	mv server-key.pem /etc/ocserv/ssl/server-key.pem
 	cd .. && rm -rf /tmp/ssl/
 }
+
 Installation_dependency(){
+	# Check if the VPS has TUN enabled
 	[[ ! -e "/dev/net/tun" ]] && echo -e "${Error} 你的VPS没有开启TUN，请联系IDC或通过VPS控制面板打开TUN/TAP开关 !" && exit 1
+
+	# Handle different distributions
 	if [[ ${release} = "centos" ]]; then
 		echo -e "${Error} 本脚本不支持 CentOS 系统 !" && exit 1
 	elif [[ ${release} = "debian" ]]; then
-		cat /etc/issue |grep 9\..*>/dev/null
+		cat /etc/issue |grep 9\..* >/dev/null
 		if [[ $? = 0 ]]; then
+			# For Debian 9
 			apt-get update
-			apt-get install vim net-tools pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin -y
+			apt-get install vim net-tools pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin ipcalc-ng -y
 		else
+			# For other Debian versions, use alternate sources list
 			mv /etc/apt/sources.list /etc/apt/sources.list.bak
 			wget --no-check-certificate -O "/etc/apt/sources.list" "https://raw.githubusercontent.com/spectatorzhang/ocserv/master/us.sources.list"
 			apt-get update
-			apt-get install vim net-tools pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin -y
+			apt-get install vim net-tools pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin ipcalc-ng -y
 			rm -rf /etc/apt/sources.list
 			mv /etc/apt/sources.list.bak /etc/apt/sources.list
 			apt-get update
 		fi
 	else
+		# For other systems (assumed Ubuntu), install dependencies
 		apt-get update
-		apt-get install vim net-tools pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin -y
+		apt-get install vim net-tools pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin ipcalc-ng -y
 	fi
 }
+
 Install_ocserv(){
 	check_root
 	[[ -e ${file} ]] && echo -e "${Error} ocserv 已安装，请检查 !" && exit 1

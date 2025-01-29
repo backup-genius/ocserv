@@ -258,7 +258,7 @@ Set_ocserv(){
 	vim ${conf}
 	set_tcp_port=$(cat ${conf}|grep "tcp-port ="|awk -F ' = ' '{print $NF}')
 	set_udp_port=$(cat ${conf}|grep "udp-port ="|awk -F ' = ' '{print $NF}')
-	Del_iptables
+	# Del_iptables
 	sleep 1s
 	Add_iptables
 	sleep 1s

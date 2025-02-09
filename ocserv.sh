@@ -501,6 +501,8 @@ over(){
 }
 
 Fix_Iptables(){
+	[[ ! -e ${conf} ]] && echo -e "${Error} ocserv 配置文件不存在 !" && exit 1
+	conf_text=$(cat ${conf}|grep -v '#')
 	set_tcp_port=$(echo -e "${conf_text}"|grep "tcp-port ="|awk -F ' = ' '{print $NF}')
 	set_udp_port=$(echo -e "${conf_text}"|grep "udp-port ="|awk -F ' = ' '{print $NF}')
 	echo -e "${Info} 开始设置 iptables防火墙..."
@@ -524,6 +526,7 @@ Save_iptables(){
 }
 Set_iptables(){
 	echo -e "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+ 	echo -e "net.ipv6.ip_forward=1" >> /etc/sysctl.conf
 	sysctl -p
 	ifconfig_status=$(ifconfig)
 	if [[ -z ${ifconfig_status} ]]; then

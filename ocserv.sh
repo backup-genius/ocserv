@@ -501,6 +501,8 @@ over(){
 }
 
 Fix_Iptables(){
+	tcp_port=$(echo -e "${conf_text}"|grep "tcp-port ="|awk -F ' = ' '{print $NF}')
+	udp_port=$(echo -e "${conf_text}"|grep "udp-port ="|awk -F ' = ' '{print $NF}')
 	echo -e "${Info} 开始设置 iptables防火墙..."
 	Set_iptables
 	echo -e "${Info} 开始添加 iptables防火墙规则..."

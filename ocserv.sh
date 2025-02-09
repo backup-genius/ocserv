@@ -499,6 +499,16 @@ over(){
 	rm -f occtl.8
 	echo && echo "安装过程错误，ocserv 卸载完成 !" && echo
 }
+
+Fix_Iptables(){
+	echo -e "${Info} 开始设置 iptables防火墙..."
+	Set_iptables
+	echo -e "${Info} 开始添加 iptables防火墙规则..."
+	Add_iptables
+	echo -e "${Info} 开始保存 iptables防火墙规则..."
+	Save_iptables
+}
+
 Add_iptables(){
 	iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${set_tcp_port} -j ACCEPT
 	iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${set_udp_port} -j ACCEPT
@@ -573,6 +583,8 @@ echo && echo -e " ocserv 一键安装管理脚本 ${Red_font_prefix}[v${sh_ver}]
  ${Green_font_prefix}7.${Font_color_suffix} 查看 配置信息
  ${Green_font_prefix}8.${Font_color_suffix} 修改 配置文件
  ${Green_font_prefix}9.${Font_color_suffix} 查看 日志信息
+————————————
+ ${Green_font_prefix}10.${Font_color_suffix} 修复 iptables
 ————————————" && echo
 if [[ -e ${file} ]]; then
 	check_pid
@@ -617,6 +629,9 @@ case "$num" in
 	9)
 	View_Log
 	;;
+ 	10)
+	Fix_Iptables
+ 	;;
 	*)
 	echo "请输入正确数字 [0-9]"
 	;;

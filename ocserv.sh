@@ -6,7 +6,7 @@ export PATH
 #	System Required: Debian/Ubuntu
 #	Description: ocserv AnyConnect
 #	Version: 1.0.6
-#	Author: Toyo, edited by spectatorzhang
+#	Author: Toyo, edited by GitHub someone
 #	Blog: https://doub.io/vpnzy-7/
 #=================================================
 sh_ver="1.0.6"
@@ -84,7 +84,7 @@ Download_ocserv(){
 	# Check if the installation was successful
 	if [[ -e ${file} ]]; then
 		# Ask the user which configuration file to use
-		echo -e "请选择配置文件类型:\n1. 普通配置 (normal conf)\n2. 完整配置 (all conf)"
+		echo -e "请选择配置文件类型:\n1. 普通分流配置 (normal conf)\n2. 完整代理配置 除苹果 (all conf)"
 		read -p "请输入数字 (1 或 2): " conf_choice
 
 		# Set the conf_file variable based on user input
@@ -558,6 +558,7 @@ check_sys
 [[ ${release} != "debian" ]] && [[ ${release} != "ubuntu" ]] && echo -e "${Error} 本脚本不支持当前系统 ${release} !" && exit 1
 echo && echo -e " ocserv 一键安装管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix}
   -- Toyo | doub.io/vpnzy-7 --
+  -- edited by github someone --
   
  ${Green_font_prefix}0.${Font_color_suffix} 升级脚本
 ————————————

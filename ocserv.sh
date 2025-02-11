@@ -84,19 +84,16 @@ Download_ocserv(){
 	# Check if the installation was successful
 	if [[ -e ${file} ]]; then
 		# Ask the user which configuration file to use
-		echo -e "请选择配置文件类型:\n1. 普通分流配置 (normal conf)\n2. 完整代理配置 除苹果 (all conf)"
-		read -p "请输入数字 (1 或 2): " conf_choice
+		echo -e "请选择配置文件类型:\n2. 完整代理配置 除苹果 (all conf)"
+		read -p "请输入数字 (2): " conf_choice
 
 		# Set the conf_file variable based on user input
-		case $conf_choice in
-			1)
-				conf_url="https://raw.githubusercontent.com/spectatorzhang/ocserv/master/ocserv.conf"
-				;;
+		case $conf_choice in			
 			2)
-				conf_url="https://raw.githubusercontent.com/spectatorzhang/ocserv/master/ocserv-all.conf"
+				conf_url="https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv-all.conf"
 				;;
 			*)
-				echo -e "${Error} 无效的选择，请输入 1 或 2."
+				echo -e "${Error} 无效的选择，请输入 2."
 				exit 1
 				;;
 		esac
@@ -117,7 +114,7 @@ Download_ocserv(){
 
 
 Service_ocserv(){
-	if ! wget --no-check-certificate https://raw.githubusercontent.com/spectatorzhang/ocserv/master/ocserv_debian -O /etc/init.d/ocserv; then
+	if ! wget --no-check-certificate https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv_debian -O /etc/init.d/ocserv; then
 		echo -e "${Error} ocserv 服务 管理脚本下载失败 !" && over
 	fi
 	chmod +x /etc/init.d/ocserv
@@ -189,7 +186,7 @@ Installation_dependency(){
 		else
 			# For other Debian versions, use alternate sources list
 			mv /etc/apt/sources.list /etc/apt/sources.list.bak
-			wget --no-check-certificate -O "/etc/apt/sources.list" "https://raw.githubusercontent.com/spectatorzhang/ocserv/master/us.sources.list"
+			wget --no-check-certificate -O "/etc/apt/sources.list" "https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/us.sources.list"
 			apt-get update
 			apt-get install vim net-tools pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin ipcalc-ng -y
 			rm -rf /etc/apt/sources.list
@@ -278,8 +275,8 @@ Set_username(){
 }
 Set_passwd(){
 	echo "请输入 要添加的VPN账号 密码"
-	read -e -p "(默认: doub.io):" userpass
-	[[ -z "${userpass}" ]] && userpass="doub.io"
+	read -e -p "(默认: 12345):" userpass
+	[[ -z "${userpass}" ]] && userpass="12345"
 	echo && echo -e "	密码 : ${Red_font_prefix}${userpass}${Font_color_suffix}" && echo
 }
 Set_tcp_port(){
@@ -508,6 +505,7 @@ Fix_Iptables(){
 	echo -e "${Info} 开始设置 iptables防火墙..."
 	Set_iptables
 	echo -e "${Info} 开始添加 iptables防火墙规则..."
+	Del_iptables
 	Add_iptables
 	echo -e "${Info} 开始保存 iptables防火墙规则..."
 	Save_iptables
@@ -526,7 +524,7 @@ Save_iptables(){
 }
 Set_iptables(){
 	echo -e "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
- 	echo -e "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
+ 	#echo -e "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
   	
 	sysctl -p
 	ifconfig_status=$(ifconfig)
@@ -561,13 +559,13 @@ Set_iptables(){
 	chmod +x /etc/network/if-pre-up.d/iptables
 }
 Update_Shell(){
-	sh_new_ver=$(wget --no-check-certificate -qO- -t1 -T3 "https://github.com/spectatorzhang/ocserv/raw/master/ocserv.sh"|grep 'sh_ver="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1) && sh_new_type="github"
+	sh_new_ver=$(wget --no-check-certificate -qO- -t1 -T3 "https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv.sh"|grep 'sh_ver="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1) && sh_new_type="github"
 	[[ -z ${sh_new_ver} ]] && echo -e "${Error} 无法链接到 Github !" && exit 0
 	if [[ -e "/etc/init.d/ocserv" ]]; then
 		rm -rf /etc/init.d/ocserv
 		Service_ocserv
 	fi
-	wget -N --no-check-certificate "https://github.com/spectatorzhang/ocserv/raw/master/ocserv.sh" && chmod +x ocserv.sh
+	wget -N --no-check-certificate "https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv.sh" && chmod +x ocserv.sh
 	echo -e "脚本已更新为最新版本[ ${sh_new_ver} ] !(注意：因为更新方式为直接覆盖当前运行的脚本，所以可能下面会提示一些报错，无视即可)" && exit 0
 }
 check_sys

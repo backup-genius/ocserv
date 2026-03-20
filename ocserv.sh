@@ -138,12 +138,15 @@ Download_ocserv(){
 
 Service_ocserv(){
 	if [[ ! -s "${SCRIPT_DIR}/ocserv_debian" ]]; then
-		echo -e "${Error} 本地服务脚本不存在: ${SCRIPT_DIR}/ocserv_debian" && over
+		echo -e "${Error} 本地服务脚本不存在: ${SCRIPT_DIR}/ocserv_debian"
+		over
+		return 1
 	fi
 	cp -f "${SCRIPT_DIR}/ocserv_debian" /etc/init.d/ocserv
 	chmod +x /etc/init.d/ocserv
 	update-rc.d -f ocserv defaults
 	echo -e "${Info} ocserv 服务 管理脚本下载完成 !"
+	return 0
 }
 rand(){
 	min=10000
@@ -244,7 +247,10 @@ Install_ocserv(){
 	echo -e "${Info} 开始应用安全默认配置..."
 	Apply_hardening_defaults
 	echo -e "${Info} 开始下载/安装 服务脚本(init)..."
-	Service_ocserv
+	if ! Service_ocserv; then
+		echo -e "${Error} ocserv 服务脚本安装失败，停止安装"
+		return 1
+	fi
 	echo -e "${Info} 开始自签SSL证书..."
 	Generate_SSL
 	echo -e "${Info} 开始设置账号配置..."

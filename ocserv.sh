@@ -32,6 +32,13 @@ Info="${Green_font_prefix}[信息]${Font_color_suffix}"
 Error="${Red_font_prefix}[错误]${Font_color_suffix}"
 Tip="${Green_font_prefix}[注意]${Font_color_suffix}"
 
+ipinfo_provider=""
+gitlab_cn=""
+gitlab_org=""
+gitlab_country=""
+gitlab_state=""
+gitlab_locality=""
+
 check_root(){
 	[[ $EUID != 0 ]] && echo -e "${Error} 当前非ROOT账号(或没有ROOT权限)，无法继续操作，请更换ROOT账号或使用 ${Green_background_prefix}sudo su${Font_color_suffix} 命令获取临时ROOT权限（执行后可能会提示输入当前账号的密码）。" && exit 1
 }
@@ -76,6 +83,48 @@ Get_ip(){
 			fi
 		fi
 	fi
+}
+
+Get_ipinfo_provider(){
+	local info_json
+	local org_line
+	info_json=$(wget -qO- -t1 -T4 "https://ipinfo.io/json" || true)
+	if [[ -z "${info_json}" ]]; then
+		ipinfo_provider=""
+		return 1
+	fi
+	org_line=$(echo "${info_json}" | sed -n 's/.*"org"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+	ipinfo_provider="${org_line}"
+	return 0
+}
+
+extract_subject_field(){
+	local subject_line="$1"
+	local key="$2"
+	echo "${subject_line}" | sed -n "s/.*${key}=\([^,\/]*\).*/\1/p" | head -n1
+}
+
+Fetch_gitlab_cert_profile(){
+	local cert_file="/tmp/gitlab-real-cert.pem"
+	local subject_line=""
+
+	rm -f "${cert_file}"
+	if ! openssl s_client -connect gitlab.com:443 -servername gitlab.com </dev/null 2>/dev/null | openssl x509 -outform PEM > "${cert_file}" 2>/dev/null; then
+		return 1
+	fi
+
+	subject_line=$(openssl x509 -in "${cert_file}" -noout -subject -nameopt RFC2253 2>/dev/null | sed 's/^subject=//')
+	[[ -z "${subject_line}" ]] && return 1
+
+	gitlab_cn=$(extract_subject_field "${subject_line}" "CN")
+	gitlab_org=$(extract_subject_field "${subject_line}" "O")
+	gitlab_country=$(extract_subject_field "${subject_line}" "C")
+	gitlab_state=$(extract_subject_field "${subject_line}" "ST")
+	gitlab_locality=$(extract_subject_field "${subject_line}" "L")
+
+	[[ -z "${gitlab_cn}" ]] && gitlab_cn="gitlab.com"
+	[[ -z "${gitlab_org}" ]] && gitlab_org="GitLab"
+	return 0
 }
 
 Download_ocserv(){ 
@@ -172,7 +221,39 @@ rand(){
 }
 Generate_SSL(){
 	lalala=$(rand)
+	local cert_cn=""
+	local cert_org="${lalala}"
+	local cert_country=""
+	local cert_state=""
+	local cert_locality=""
+	local cert_dns_name=""
+
+	Get_ip
+	if [[ -z "$ip" ]]; then
+		echo -e "${Error} 检测外网IP失败 !"
+		read -e -p "请手动输入你的服务器外网IP:" ip
+		[[ -z "${ip}" ]] && echo "取消..." && over
+	fi
+
+	cert_cn="${ip}"
 	mkdir /tmp/ssl && cd /tmp/ssl
+	if Get_ipinfo_provider; then
+		if echo "${ipinfo_provider}" | grep -qi "google"; then
+			echo -e "${Tip} 检测到云服务提供商包含 google，接下来将使用 gitlab 证书画像进行自签名。"
+			if Fetch_gitlab_cert_profile; then
+				cert_cn="${gitlab_cn}"
+				cert_org="${gitlab_org}"
+				cert_country="${gitlab_country}"
+				cert_state="${gitlab_state}"
+				cert_locality="${gitlab_locality}"
+				cert_dns_name="${gitlab_cn}"
+				echo -e "${Info} 已一次性获取真实 gitlab 证书信息，CN=${cert_cn}, O=${cert_org}"
+			else
+				echo -e "${Error} 获取 gitlab 证书信息失败，将回退默认自签信息"
+			fi
+		fi
+	fi
+
 	echo -e 'cn = "'${lalala}'"
 organization = "'${lalala}'"
 serial = 1
@@ -186,19 +267,25 @@ crl_signing_key' > ca.tmpl
 	[[ $? != 0 ]] && echo -e "${Error} 生成SSL证书密匙文件失败(ca-key.pem) !" && over
 	certtool --generate-self-signed --load-privkey ca-key.pem --template ca.tmpl --outfile ca-cert.pem
 	[[ $? != 0 ]] && echo -e "${Error} 生成SSL证书文件失败(ca-cert.pem) !" && over
-	
-	Get_ip
-	if [[ -z "$ip" ]]; then
-		echo -e "${Error} 检测外网IP失败 !"
-		read -e -p "请手动输入你的服务器外网IP:" ip
-		[[ -z "${ip}" ]] && echo "取消..." && over
-	fi
-	echo -e 'cn = "'${ip}'"
-organization = "'${lalala}'"
+
+	echo -e 'cn = "'${cert_cn}'"
+organization = "'${cert_org}'"
 expiration_days = 365
 signing_key
 encryption_key
 tls_www_server' > server.tmpl
+	if [[ -n "${cert_country}" ]]; then
+		echo -e "country = \"${cert_country}\"" >> server.tmpl
+	fi
+	if [[ -n "${cert_state}" ]]; then
+		echo -e "state = \"${cert_state}\"" >> server.tmpl
+	fi
+	if [[ -n "${cert_locality}" ]]; then
+		echo -e "locality = \"${cert_locality}\"" >> server.tmpl
+	fi
+	if [[ -n "${cert_dns_name}" ]]; then
+		echo -e "dns_name = \"${cert_dns_name}\"" >> server.tmpl
+	fi
 	[[ $? != 0 ]] && echo -e "${Error} 写入SSL证书签名模板失败(server.tmpl) !" && over
 	certtool --generate-privkey --outfile server-key.pem
 	[[ $? != 0 ]] && echo -e "${Error} 生成SSL证书密匙文件失败(server-key.pem) !" && over
@@ -225,7 +312,7 @@ Installation_dependency(){
 	fi
 
 	apt-get update
-	apt-get install vim net-tools iproute2 pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin ipcalc-ng -y
+	apt-get install vim net-tools iproute2 pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin ipcalc-ng openssl -y
 }
 
 Ensure_ocserv_user(){

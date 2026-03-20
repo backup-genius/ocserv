@@ -2,9 +2,11 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
-set -o errexit
+#set -o errexit  # 自动出错立即退出，不适用于交互式菜单；改成手动错误处理
 set -o nounset
 set -o pipefail
+
+trap 'echo "${Error} 运行出错: $BASH_COMMAND"' ERR
 
 #=================================================
 #	System Required: Debian/Ubuntu
@@ -104,13 +106,19 @@ Download_ocserv(){
 				;;
 		esac
 
-		# Create directory for config and copy the chosen file
-		mkdir -p "${conf_file}"
-		[[ ! -s "${conf_src}" ]] && echo -e "${Error} 本地配置模板不存在: ${conf_src}" && exit 1
+	# Create directory for config and get the chosen file
+	mkdir -p "${conf_file}"
+	if [[ -s "${conf_src}" ]]; then
 		cp -f "${conf_src}" "${conf_file}/ocserv.conf"
+	else
+		# 从GitHub获取
+		conf_src_github="https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv-all.conf"
+		wget -O "${conf_file}/ocserv.conf" "$conf_src_github"
+		[[ ! -s "${conf_file}/ocserv.conf" ]] && echo -e "${Error} 无法从GitHub下载配置文件 ${conf_src_github}" && rm -rf "${conf_file}" && return 1
+	fi
 
-		# Verify if the renamed file exists and is valid
-		[[ ! -s "${conf_file}/ocserv.conf" ]] && echo -e "${Error} ocserv 配置文件复制失败 !" && rm -rf "${conf_file}" && exit 1
+	# Verify if the file exists and is valid
+	[[ ! -s "${conf_file}/ocserv.conf" ]] && echo -e "${Error} ocserv 配置文件获取失败 !" && rm -rf "${conf_file}" && return 1
 	else
 		echo -e "${Error} ocserv 编译安装失败，请检查！" && exit 1
 	fi
@@ -608,37 +616,59 @@ while true; do
   read -e -p " 请输入数字 [0-10/q]:" num
   case "$num" in
     0)
-      Update_Shell
+      if ! Update_Shell; then
+        echo "${Error} 升级脚本失败"
+      fi
       ;;
     1)
-      Install_ocserv
+      if ! Install_ocserv; then
+        echo "${Error} 安装 ocserv 失败，请检查日志或终端输出"
+      fi
       ;;
     2)
-      Uninstall_ocserv
+      if ! Uninstall_ocserv; then
+        echo "${Error} 卸载 ocserv 失败"
+      fi
       ;;
     3)
-      Start_ocserv
+      if ! Start_ocserv; then
+        echo "${Error} 启动 ocserv 失败"
+      fi
       ;;
     4)
-      Stop_ocserv
+      if ! Stop_ocserv; then
+        echo "${Error} 停止 ocserv 失败"
+      fi
       ;;
     5)
-      Restart_ocserv
+      if ! Restart_ocserv; then
+        echo "${Error} 重启 ocserv 失败"
+      fi
       ;;
     6)
-      Set_Pass
+      if ! Set_Pass; then
+        echo "${Error} 设置账号配置失败"
+      fi
       ;;
     7)
-      View_Config
+      if ! View_Config; then
+        echo "${Error} 查看配置信息失败"
+      fi
       ;;
     8)
-      Set_ocserv
+      if ! Set_ocserv; then
+        echo "${Error} 修改配置文件失败"
+      fi
       ;;
     9)
-      View_Log
+      if ! View_Log; then
+        echo "${Error} 查看日志失败"
+      fi
       ;;
     10)
-      Fix_Iptables
+      if ! Fix_Iptables; then
+        echo "${Error} 修复 iptables 失败"
+      fi
       ;;
     q|Q)
       echo "退出脚本"

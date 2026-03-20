@@ -22,7 +22,8 @@ conf="/etc/ocserv/ocserv.conf"
 passwd_file="/etc/ocserv/ocpasswd"
 log_file="/tmp/ocserv.log"
 ocserv_ver="1.4.1"
-ocserv_download_base="https://www.infradead.org/ocserv/download"
+# use custom mirror archive URL form for versatile download
+ocserv_download_base="https://github.com/spectatorzhang/ocserv-verge/archive/refs/tags"
 # Original ocserv_ver = 0.11.8
 PID_FILE="/var/run/ocserv.pid"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -159,13 +160,27 @@ Download_ocserv(){
 	# clean previous build dir first
 	rm -rf ocserv
 	mkdir -p "ocserv" && cd "ocserv"
-	wget "${ocserv_download_base}/ocserv-${ocserv_ver}.tar.xz"
-	if [[ ! -s "ocserv-${ocserv_ver}.tar.xz" ]]; then
-		echo -e "${Error} ocserv 源码文件下载失败 !"
-		rm -rf "ocserv/" && rm -rf "ocserv-${ocserv_ver}.tar.xz"
+	# try tar.gz first, then tar.xz fallback
+	wget "${ocserv_download_base}/${ocserv_ver}.tar.gz" -O "ocserv-${ocserv_ver}.tar.gz"
+	if [[ -s "ocserv-${ocserv_ver}.tar.gz" ]]; then
+		tar -xzf "ocserv-${ocserv_ver}.tar.gz" && cd "ocserv-verge-${ocserv_ver}"
+	else
+		wget "${ocserv_download_base}/${ocserv_ver}.tar.gz" -O "ocserv-${ocserv_ver}.tar.gz" 
+	fi
+	if [[ ! -d "ocserv-verge-${ocserv_ver}" && -s "ocserv-${ocserv_ver}.tar.gz" ]]; then
+		# maybe archive includes non-standard directory name inside
+		tar -xzf "ocserv-${ocserv_ver}.tar.gz"
+		if [[ -d "ocserv-verge-${ocserv_ver}" ]]; then
+			cd "ocserv-verge-${ocserv_ver}"
+		else
+			cd "$(ls -d */ | head -n1 | sed 's:/::')"
+		fi
+	fi
+	if [[ ! -d "ocserv-verge-${ocserv_ver}" && ! -d "ocserv-${ocserv_ver}" ]]; then
+		echo -e "${Error} ocserv 源码文件下载或解压失败 !"
+		rm -rf "ocserv/" && rm -rf "ocserv-${ocserv_ver}.tar.gz"
 		return 1
 	fi
-	tar -xJf "ocserv-${ocserv_ver}.tar.xz" && cd "ocserv-${ocserv_ver}"
 	./configure || { echo -e "${Error} ocserv configure 失败"; cd ..; rm -rf ../ocserv; return 1; }
 	make || { echo -e "${Error} ocserv make 失败"; cd ..; rm -rf ../ocserv; return 1; }
 	make install || { echo -e "${Error} ocserv make install 失败"; cd ..; rm -rf ../ocserv; return 1; }

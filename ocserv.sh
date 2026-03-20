@@ -137,12 +137,28 @@ Download_ocserv(){
 
 
 Service_ocserv(){
-	if [[ ! -s "${SCRIPT_DIR}/ocserv_debian" ]]; then
-		echo -e "${Error} 本地服务脚本不存在: ${SCRIPT_DIR}/ocserv_debian"
+	local service_script="${SCRIPT_DIR}/ocserv_debian"
+	if [[ ! -s "${service_script}" ]]; then
+		if [[ -s "/root/ocserv_debian" ]]; then
+			service_script="/root/ocserv_debian"
+		else
+			# fallback: download from repo
+			echo -e "${Info} 本地服务脚本不存在，尝试从 GitHub 下载..."
+			mkdir -p /tmp
+			wget -qO /tmp/ocserv_debian https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv_debian
+			if [[ -s /tmp/ocserv_debian ]]; then
+				service_script="/tmp/ocserv_debian"
+			fi
+		fi
+	fi
+
+	if [[ ! -s "${service_script}" ]]; then
+		echo -e "${Error} 本地服务脚本不存在, ${service_script} 未找到或为空"
 		over
 		return 1
 	fi
-	cp -f "${SCRIPT_DIR}/ocserv_debian" /etc/init.d/ocserv
+
+	cp -f "${service_script}" /etc/init.d/ocserv
 	chmod +x /etc/init.d/ocserv
 	update-rc.d -f ocserv defaults
 	echo -e "${Info} ocserv 服务 管理脚本下载完成 !"

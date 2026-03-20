@@ -2,6 +2,10 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
+set -o errexit
+set -o nounset
+set -o pipefail
+
 #=================================================
 #	System Required: Debian/Ubuntu
 #	Description: ocserv AnyConnect
@@ -15,9 +19,11 @@ conf_file="/etc/ocserv"
 conf="/etc/ocserv/ocserv.conf"
 passwd_file="/etc/ocserv/ocpasswd"
 log_file="/tmp/ocserv.log"
-ocserv_ver="1.3.0" 
+ocserv_ver="1.4.1"
+ocserv_download_base="https://www.infradead.org/ocserv/download"
 # Original ocserv_ver = 0.11.8
 PID_FILE="/var/run/ocserv.pid"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 Green_font_prefix="\033[32m" && Red_font_prefix="\033[31m" && Green_background_prefix="\033[42;37m" && Red_background_prefix="\033[41;37m" && Font_color_suffix="\033[0m"
 Info="${Green_font_prefix}[信息]${Font_color_suffix}"
@@ -72,9 +78,9 @@ Get_ip(){
 
 Download_ocserv(){ 
 	mkdir "ocserv" && cd "ocserv"
-	wget "ftp://ftp.infradead.org/pub/ocserv/ocserv-${ocserv_ver}.tar.xz"
+	wget "${ocserv_download_base}/ocserv-${ocserv_ver}.tar.xz"
 	[[ ! -s "ocserv-${ocserv_ver}.tar.xz" ]] && echo -e "${Error} ocserv 源码文件下载失败 !" && rm -rf "ocserv/" && rm -rf "ocserv-${ocserv_ver}.tar.xz" && exit 1
-	tar -xJf ocserv-1.3.0.tar.xz && cd ocserv-1.3.0
+	tar -xJf "ocserv-${ocserv_ver}.tar.xz" && cd "ocserv-${ocserv_ver}"
 	./configure
 	make
 	make install
@@ -87,10 +93,10 @@ Download_ocserv(){
 		echo -e "请选择配置文件类型:\n2. 完整代理配置 除苹果 (all conf)"
 		read -p "请输入数字 (2): " conf_choice
 
-		# Set the conf_file variable based on user input
+		# Set the config file source based on user input
 		case $conf_choice in			
 			2)
-				conf_url="https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv-all.conf"
+				conf_src="${SCRIPT_DIR}/ocserv-all.conf"
 				;;
 			*)
 				echo -e "${Error} 无效的选择，请输入 2."
@@ -98,15 +104,13 @@ Download_ocserv(){
 				;;
 		esac
 
-		# Create directory for config and download the chosen file
-		mkdir "${conf_file}"
-		wget --no-check-certificate -N -P "${conf_file}" "$conf_url"
-
-		# Ensure the file is renamed to ocserv.conf regardless of the choice
-		mv "${conf_file}/$(basename $conf_url)" "${conf_file}/ocserv.conf"
+		# Create directory for config and copy the chosen file
+		mkdir -p "${conf_file}"
+		[[ ! -s "${conf_src}" ]] && echo -e "${Error} 本地配置模板不存在: ${conf_src}" && exit 1
+		cp -f "${conf_src}" "${conf_file}/ocserv.conf"
 
 		# Verify if the renamed file exists and is valid
-		[[ ! -s "${conf_file}/ocserv.conf" ]] && echo -e "${Error} ocserv 配置文件下载失败 !" && rm -rf "${conf_file}" && exit 1
+		[[ ! -s "${conf_file}/ocserv.conf" ]] && echo -e "${Error} ocserv 配置文件复制失败 !" && rm -rf "${conf_file}" && exit 1
 	else
 		echo -e "${Error} ocserv 编译安装失败，请检查！" && exit 1
 	fi
@@ -114,9 +118,10 @@ Download_ocserv(){
 
 
 Service_ocserv(){
-	if ! wget --no-check-certificate https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv_debian -O /etc/init.d/ocserv; then
-		echo -e "${Error} ocserv 服务 管理脚本下载失败 !" && over
+	if [[ ! -s "${SCRIPT_DIR}/ocserv_debian" ]]; then
+		echo -e "${Error} 本地服务脚本不存在: ${SCRIPT_DIR}/ocserv_debian" && over
 	fi
+	cp -f "${SCRIPT_DIR}/ocserv_debian" /etc/init.d/ocserv
 	chmod +x /etc/init.d/ocserv
 	update-rc.d -f ocserv defaults
 	echo -e "${Info} ocserv 服务 管理脚本下载完成 !"
@@ -162,7 +167,7 @@ tls_www_server' > server.tmpl
 	certtool --generate-certificate --load-privkey server-key.pem --load-ca-certificate ca-cert.pem --load-ca-privkey ca-key.pem --template server.tmpl --outfile server-cert.pem
 	[[ $? != 0 ]] && echo -e "${Error} 生成SSL证书文件失败(server-cert.pem) !" && over
 	
-	mkdir /etc/ocserv/ssl
+	mkdir -p /etc/ocserv/ssl
 	mv ca-cert.pem /etc/ocserv/ssl/ca-cert.pem
 	mv ca-key.pem /etc/ocserv/ssl/ca-key.pem
 	mv server-cert.pem /etc/ocserv/ssl/server-cert.pem
@@ -177,27 +182,28 @@ Installation_dependency(){
 	# Handle different distributions
 	if [[ ${release} = "centos" ]]; then
 		echo -e "${Error} 本脚本不支持 CentOS 系统 !" && exit 1
-	elif [[ ${release} = "debian" ]]; then
-		cat /etc/issue |grep 9\..* >/dev/null
-		if [[ $? = 0 ]]; then
-			# For Debian 9
-			apt-get update
-			apt-get install vim net-tools pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin ipcalc-ng -y
-		else
-			# For other Debian versions, use alternate sources list
-			mv /etc/apt/sources.list /etc/apt/sources.list.bak
-			wget --no-check-certificate -O "/etc/apt/sources.list" "https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/us.sources.list"
-			apt-get update
-			apt-get install vim net-tools pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin ipcalc-ng -y
-			rm -rf /etc/apt/sources.list
-			mv /etc/apt/sources.list.bak /etc/apt/sources.list
-			apt-get update
-		fi
 	else
-		# For other systems (assumed Ubuntu), install dependencies
-		apt-get update
-		apt-get install vim net-tools pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin ipcalc-ng -y
+		:
 	fi
+
+	apt-get update
+	apt-get install vim net-tools iproute2 pkg-config build-essential libgnutls28-dev libwrap0-dev liblz4-dev libseccomp-dev libreadline-dev libnl-nf-3-dev libev-dev gnutls-bin ipcalc-ng -y
+}
+
+Ensure_ocserv_user(){
+	if ! getent group ocserv >/dev/null; then
+		groupadd --system ocserv
+	fi
+	if ! id -u ocserv >/dev/null 2>&1; then
+		useradd --system --gid ocserv --home-dir /var/lib/ocserv --shell /usr/sbin/nologin ocserv
+	fi
+	mkdir -p /var/lib/ocserv
+}
+
+Apply_hardening_defaults(){
+	[[ -e ${conf} ]] || return 0
+	sed -i 's/^run-as-user = .*/run-as-user = ocserv/' ${conf}
+	sed -i 's/^run-as-group = .*/run-as-group = ocserv/' ${conf}
 }
 
 Install_ocserv(){
@@ -207,6 +213,10 @@ Install_ocserv(){
 	Installation_dependency
 	echo -e "${Info} 开始下载/安装 配置文件..."
 	Download_ocserv
+	echo -e "${Info} 开始创建专用服务账号..."
+	Ensure_ocserv_user
+	echo -e "${Info} 开始应用安全默认配置..."
+	Apply_hardening_defaults
 	echo -e "${Info} 开始下载/安装 服务脚本(init)..."
 	Service_ocserv
 	echo -e "${Info} 开始自签SSL证书..."
@@ -274,9 +284,21 @@ Set_username(){
 	echo && echo -e "	用户名 : ${Red_font_prefix}${username}${Font_color_suffix}" && echo
 }
 Set_passwd(){
-	echo "请输入 要添加的VPN账号 密码"
-	read -e -p "(默认: 12345):" userpass
-	[[ -z "${userpass}" ]] && userpass="12345"
+	while true
+	do
+		echo "请输入 要添加的VPN账号 密码 (至少12位，包含字母和数字)"
+		read -r -s -p "密码: " userpass
+		echo
+		if [[ ${#userpass} -lt 12 ]]; then
+			echo -e "${Error} 密码长度至少12位"
+			continue
+		fi
+		if [[ ! "${userpass}" =~ [A-Za-z] ]] || [[ ! "${userpass}" =~ [0-9] ]]; then
+			echo -e "${Error} 密码必须同时包含字母和数字"
+			continue
+		fi
+		break
+	done
 	echo && echo -e "	密码 : ${Red_font_prefix}${userpass}${Font_color_suffix}" && echo
 }
 Set_tcp_port(){
@@ -462,7 +484,7 @@ Uninstall_ocserv(){
 	[[ -z ${unyn} ]] && unyn="n"
 	if [[ ${unyn} == [Yy] ]]; then
 		check_pid
-		[[ ! -z $PID ]] && kill -9 ${PID} && rm -f ${PID_FILE}
+		[[ ! -z $PID ]] && kill ${PID} && rm -f ${PID_FILE}
 		Read_config
 		Del_iptables
 		Save_iptables
@@ -512,61 +534,39 @@ Fix_Iptables(){
 }
 
 Add_iptables(){
-	iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${set_tcp_port} -j ACCEPT
-	iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${set_udp_port} -j ACCEPT
+	iptables -C INPUT -m state --state NEW -m tcp -p tcp --dport ${set_tcp_port} -j ACCEPT 2>/dev/null || iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport ${set_tcp_port} -j ACCEPT
+	iptables -C INPUT -m state --state NEW -m udp -p udp --dport ${set_udp_port} -j ACCEPT 2>/dev/null || iptables -I INPUT -m state --state NEW -m udp -p udp --dport ${set_udp_port} -j ACCEPT
 }
 Del_iptables(){
-	iptables -D INPUT -m state --state NEW -m tcp -p tcp --dport ${tcp_port} -j ACCEPT
-	iptables -D INPUT -m state --state NEW -m udp -p udp --dport ${udp_port} -j ACCEPT
+	iptables -C INPUT -m state --state NEW -m tcp -p tcp --dport ${tcp_port} -j ACCEPT 2>/dev/null && iptables -D INPUT -m state --state NEW -m tcp -p tcp --dport ${tcp_port} -j ACCEPT || true
+	iptables -C INPUT -m state --state NEW -m udp -p udp --dport ${udp_port} -j ACCEPT 2>/dev/null && iptables -D INPUT -m state --state NEW -m udp -p udp --dport ${udp_port} -j ACCEPT || true
 }
 Save_iptables(){
 	iptables-save > /etc/iptables.up.rules
 }
 Set_iptables(){
-	echo -e "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+	if ! grep -q '^net.ipv4.ip_forward=1$' /etc/sysctl.conf; then
+		echo -e "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+	fi
  	#echo -e "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
   	
 	sysctl -p
-	ifconfig_status=$(ifconfig)
-	if [[ -z ${ifconfig_status} ]]; then
-		echo -e "${Error} ifconfig 未安装 !"
-		read -e -p "请手动输入你的网卡名(一般情况下，网卡名为 eth0，Debian9 则为 ens3，CentOS Ubuntu 最新版本可能为 enpXsX(X代表数字或字母)，OpenVZ 虚拟化则为 venet0):" Network_card
+	Network_card=$(ip route get 1.1.1.1 2>/dev/null | awk '/dev/ {for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')
+	if [[ -z ${Network_card} ]]; then
+		echo -e "${Error} 自动检测网卡失败"
+		ip -o link show
+		read -e -p "请手动输入你的网卡名:" Network_card
 		[[ -z "${Network_card}" ]] && echo "取消..." && exit 1
-	else
-		Network_card=$(ifconfig|grep "eth0")
-		if [[ ! -z ${Network_card} ]]; then
-			Network_card="eth0"
-		else
-			Network_card=$(ifconfig|grep "ens3")
-			if [[ ! -z ${Network_card} ]]; then
-				Network_card="ens3"
-			else
-				Network_card=$(ifconfig|grep "venet0")
-				if [[ ! -z ${Network_card} ]]; then
-					Network_card="venet0"
-				else
-					ifconfig
-					read -e -p "检测到本服务器的网卡非 eth0 \ ens3(Debian9) \ venet0(OpenVZ) \ enpXsX(CentOS Ubuntu 最新版本，X代表数字或字母)，请根据上面输出的网卡信息手动输入你的网卡名:" Network_card
-					[[ -z "${Network_card}" ]] && echo "取消..." && exit 1
-				fi
-			fi
-		fi
 	fi
-	iptables -t nat -A POSTROUTING -o ${Network_card} -j MASQUERADE
+	iptables -t nat -C POSTROUTING -o ${Network_card} -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o ${Network_card} -j MASQUERADE
 	
 	iptables-save > /etc/iptables.up.rules
 	echo -e '#!/bin/bash\n/sbin/iptables-restore < /etc/iptables.up.rules' > /etc/network/if-pre-up.d/iptables
 	chmod +x /etc/network/if-pre-up.d/iptables
 }
 Update_Shell(){
-	sh_new_ver=$(wget --no-check-certificate -qO- -t1 -T3 "https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv.sh"|grep 'sh_ver="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1) && sh_new_type="github"
-	[[ -z ${sh_new_ver} ]] && echo -e "${Error} 无法链接到 Github !" && exit 0
-	if [[ -e "/etc/init.d/ocserv" ]]; then
-		rm -rf /etc/init.d/ocserv
-		Service_ocserv
-	fi
-	wget -N --no-check-certificate "https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv.sh" && chmod +x ocserv.sh
-	echo -e "脚本已更新为最新版本[ ${sh_new_ver} ] !(注意：因为更新方式为直接覆盖当前运行的脚本，所以可能下面会提示一些报错，无视即可)" && exit 0
+	echo -e "${Tip} 已禁用在线自更新（安全考虑）。请通过版本控制拉取仓库更新。"
+	exit 0
 }
 check_sys
 [[ ${release} != "debian" ]] && [[ ${release} != "ubuntu" ]] && echo -e "${Error} 本脚本不支持当前系统 ${release} !" && exit 1
@@ -601,7 +601,7 @@ else
 	echo -e " 当前状态: ${Red_font_prefix}未安装${Font_color_suffix}"
 fi
 echo
-read -e -p " 请输入数字 [0-9]:" num
+read -e -p " 请输入数字 [0-10]:" num
 case "$num" in
 	0)
 	Update_Shell
@@ -637,6 +637,6 @@ case "$num" in
 	Fix_Iptables
  	;;
 	*)
-	echo "请输入正确数字 [0-9]"
+	echo "请输入正确数字 [0-10]"
 	;;
 esac

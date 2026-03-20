@@ -51,7 +51,7 @@ do_start(){
 do_stop(){
 	check_running
 	if [[ $? -eq 0 ]]; then
-		kill -9 ${PID}
+		kill ${PID}
 		RETVAL=$?
 		if [[ $RETVAL -eq 0 ]]; then
 			rm -f ${PID_FILE}

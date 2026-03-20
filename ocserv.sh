@@ -38,6 +38,11 @@ gitlab_org=""
 gitlab_country=""
 gitlab_state=""
 gitlab_locality=""
+microsoft_cn=""
+microsoft_org=""
+microsoft_country=""
+microsoft_state=""
+microsoft_locality=""
 
 check_root(){
 	[[ $EUID != 0 ]] && echo -e "${Error} 当前非ROOT账号(或没有ROOT权限)，无法继续操作，请更换ROOT账号或使用 ${Green_background_prefix}sudo su${Font_color_suffix} 命令获取临时ROOT权限（执行后可能会提示输入当前账号的密码）。" && exit 1
@@ -124,6 +129,29 @@ Fetch_gitlab_cert_profile(){
 
 	[[ -z "${gitlab_cn}" ]] && gitlab_cn="gitlab.com"
 	[[ -z "${gitlab_org}" ]] && gitlab_org="GitLab"
+	return 0
+}
+
+Fetch_microsoft_cert_profile(){
+	local cert_file="/tmp/microsoft-real-cert.pem"
+	local subject_line=""
+
+	rm -f "${cert_file}"
+	if ! openssl s_client -connect www.microsoft.com:443 -servername www.microsoft.com </dev/null 2>/dev/null | openssl x509 -outform PEM > "${cert_file}" 2>/dev/null; then
+		return 1
+	fi
+
+	subject_line=$(openssl x509 -in "${cert_file}" -noout -subject -nameopt RFC2253 2>/dev/null | sed 's/^subject=//')
+	[[ -z "${subject_line}" ]] && return 1
+
+	microsoft_cn=$(extract_subject_field "${subject_line}" "CN")
+	microsoft_org=$(extract_subject_field "${subject_line}" "O")
+	microsoft_country=$(extract_subject_field "${subject_line}" "C")
+	microsoft_state=$(extract_subject_field "${subject_line}" "ST")
+	microsoft_locality=$(extract_subject_field "${subject_line}" "L")
+
+	[[ -z "${microsoft_cn}" ]] && microsoft_cn="www.microsoft.com"
+	[[ -z "${microsoft_org}" ]] && microsoft_org="Microsoft Corporation"
 	return 0
 }
 
@@ -238,7 +266,20 @@ Generate_SSL(){
 	cert_cn="${ip}"
 	mkdir /tmp/ssl && cd /tmp/ssl
 	if Get_ipinfo_provider; then
-		if echo "${ipinfo_provider}" | grep -qi "google"; then
+		if echo "${ipinfo_provider}" | grep -qi "microsoft"; then
+			echo -e "${Tip} 检测到云服务提供商包含 microsoft，接下来将使用 microsoft 证书画像进行自签名。"
+			if Fetch_microsoft_cert_profile; then
+				cert_cn="${microsoft_cn}"
+				cert_org="${microsoft_org}"
+				cert_country="${microsoft_country}"
+				cert_state="${microsoft_state}"
+				cert_locality="${microsoft_locality}"
+				cert_dns_name="${microsoft_cn}"
+				echo -e "${Info} 已一次性获取真实 microsoft 证书信息，CN=${cert_cn}, O=${cert_org}"
+			else
+				echo -e "${Error} 获取 microsoft 证书信息失败，将回退默认自签信息"
+			fi
+		elif echo "${ipinfo_provider}" | grep -qi "google"; then
 			echo -e "${Tip} 检测到云服务提供商包含 google，接下来将使用 gitlab 证书画像进行自签名。"
 			if Fetch_gitlab_cert_profile; then
 				cert_cn="${gitlab_cn}"

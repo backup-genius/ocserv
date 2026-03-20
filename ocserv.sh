@@ -118,7 +118,12 @@ Download_ocserv(){
 	fi
 
 	# Verify if the file exists and is valid
-	[[ ! -s "${conf_file}/ocserv.conf" ]] && echo -e "${Error} ocserv 配置文件获取失败 !" && rm -rf "${conf_file}" && return 1
+	if [[ ! -s "${conf_file}/ocserv.conf" ]]; then
+		echo -e "${Error} ocserv 配置文件获取失败 !"
+		rm -rf "${conf_file}"
+		return 1
+	fi
+	return 0
 	else
 		echo -e "${Error} ocserv 编译安装失败，请检查！" && exit 1
 	fi

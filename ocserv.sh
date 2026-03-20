@@ -160,27 +160,31 @@ Download_ocserv(){
 	# clean previous build dir first
 	rm -rf ocserv
 	mkdir -p "ocserv" && cd "ocserv"
-	# try tar.gz first, then tar.xz fallback
+	# download tarball from github codeload redirect URL
 	wget "${ocserv_download_base}/${ocserv_ver}.tar.gz" -O "ocserv-${ocserv_ver}.tar.gz"
-	if [[ -s "ocserv-${ocserv_ver}.tar.gz" ]]; then
-		tar -xzf "ocserv-${ocserv_ver}.tar.gz" && cd "ocserv-verge-${ocserv_ver}"
-	else
-		wget "${ocserv_download_base}/${ocserv_ver}.tar.gz" -O "ocserv-${ocserv_ver}.tar.gz" 
-	fi
-	if [[ ! -d "ocserv-verge-${ocserv_ver}" && -s "ocserv-${ocserv_ver}.tar.gz" ]]; then
-		# maybe archive includes non-standard directory name inside
-		tar -xzf "ocserv-${ocserv_ver}.tar.gz"
-		if [[ -d "ocserv-verge-${ocserv_ver}" ]]; then
-			cd "ocserv-verge-${ocserv_ver}"
-		else
-			cd "$(ls -d */ | head -n1 | sed 's:/::')"
-		fi
-	fi
-	if [[ ! -d "ocserv-verge-${ocserv_ver}" && ! -d "ocserv-${ocserv_ver}" ]]; then
-		echo -e "${Error} ocserv 源码文件下载或解压失败 !"
-		rm -rf "ocserv/" && rm -rf "ocserv-${ocserv_ver}.tar.gz"
+	if [[ ! -s "ocserv-${ocserv_ver}.tar.gz" ]]; then
+		echo -e "${Error} ocserv 源码文件下载失败 !"
+		rm -rf "ocserv/" && rm -f "ocserv-${ocserv_ver}.tar.gz"
 		return 1
 	fi
+	# unpack
+	tar -xzf "ocserv-${ocserv_ver}.tar.gz"
+
+	# find top-level extracted directory
+	if [[ -d "ocserv-verge-${ocserv_ver}" ]]; then
+		src_dir="ocserv-verge-${ocserv_ver}"
+	else
+		src_dir="$(find . -maxdepth 1 -type d -name "*${ocserv_ver}*" | head -n1 | sed 's#./##')"
+	fi
+
+	if [[ -z "${src_dir}" || ! -d "${src_dir}" ]]; then
+		echo -e "${Error} ocserv 源码文件解压目录未找到 !"
+		rm -rf "ocserv/" && rm -f "ocserv-${ocserv_ver}.tar.gz"
+		return 1
+	fi
+	cd "${src_dir}"
+	# cleanup archive
+	rm -f "ocserv-${ocserv_ver}.tar.gz"
 	./configure || { echo -e "${Error} ocserv configure 失败"; cd ..; rm -rf ../ocserv; return 1; }
 	make || { echo -e "${Error} ocserv make 失败"; cd ..; rm -rf ../ocserv; return 1; }
 	make install || { echo -e "${Error} ocserv make install 失败"; cd ..; rm -rf ../ocserv; return 1; }

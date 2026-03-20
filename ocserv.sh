@@ -193,39 +193,22 @@ Download_ocserv(){
 
 	# Check if the installation was successful
 	if [[ -e ${file} ]]; then
-		# Ask the user which configuration file to use
-		echo -e "请选择配置文件类型:\n2. 完整代理配置 除苹果 (all conf)"
-		read -p "请输入数字 (2): " conf_choice
-
-		# Set the config file source based on user input
-		case $conf_choice in			
-			2)
-				conf_src="${SCRIPT_DIR}/ocserv-all.conf"
-				;;
-			*)
-				echo -e "${Error} 无效的选择，请输入 2."
-				exit 1
-				;;
-		esac
-
-	# Create directory for config and get the chosen file
-	mkdir -p "${conf_file}"
-	if [[ -s "${conf_src}" ]]; then
-		cp -f "${conf_src}" "${conf_file}/ocserv.conf"
-	else
-		# 从GitHub获取
+		# Always fetch latest configuration from remote, ignore local version
 		conf_src_github="https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv-all.conf"
-		wget -O "${conf_file}/ocserv.conf" "$conf_src_github"
-		[[ ! -s "${conf_file}/ocserv.conf" ]] && echo -e "${Error} 无法从GitHub下载配置文件 ${conf_src_github}" && rm -rf "${conf_file}" && return 1
-	fi
 
-	# Verify if the file exists and is valid
-	if [[ ! -s "${conf_file}/ocserv.conf" ]]; then
-		echo -e "${Error} ocserv 配置文件获取失败 !"
-		rm -rf "${conf_file}"
-		return 1
-	fi
-	return 0
+		mkdir -p "${conf_file}"
+		wget -q -O "${conf_file}/ocserv.conf" "${conf_src_github}"
+		if [[ ! -s "${conf_file}/ocserv.conf" ]]; then
+			echo -e "${Error} 无法从GitHub下载配置文件 ${conf_src_github}" && rm -rf "${conf_file}" && return 1
+		fi
+
+		# Verify if the file exists and is valid
+		if [[ ! -s "${conf_file}/ocserv.conf" ]]; then
+			echo -e "${Error} ocserv 配置文件获取失败 !"
+			rm -rf "${conf_file}"
+			return 1
+		fi
+		return 0
 	else
 		echo -e "${Error} ocserv 编译安装失败，请检查！" && return 1
 	fi
@@ -551,13 +534,12 @@ Set_Config(){
 	sed -i 's/udp-port = '"$(echo ${udp_port})"'/udp-port = '"$(echo ${set_udp_port})"'/g' ${conf}
 }
 Read_config(){
-	if [[ ! -e ${conf} ]]; then
-		echo -e "${Error} ocserv 配置文件不存在 ! 尝试从 GitHub 下载..."
-		wget -q -O "${conf}" "https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv-all.conf"
-		if [[ ! -s ${conf} ]]; then
-			echo -e "${Error} 无法获取 ocserv 配置文件，检查网络或手动放置 ${conf}"
-			return 1
-		fi
+	# Always fetch latest configuration from remote, ignore local copy
+	conf_src_github="https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv-all.conf"
+	wget -q -O "${conf}" "${conf_src_github}"
+	if [[ ! -s ${conf} ]]; then
+		echo -e "${Error} 无法获取 ocserv 配置文件，检查网络或手动放置 ${conf}"
+		return 1
 	fi
 	conf_text=$(grep -v '^#' ${conf})
 	tcp_port=$(echo -e "${conf_text}"|grep "tcp-port ="|awk -F ' = ' '{print $NF}')

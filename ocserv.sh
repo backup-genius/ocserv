@@ -570,7 +570,9 @@ Update_Shell(){
 }
 check_sys
 [[ ${release} != "debian" ]] && [[ ${release} != "ubuntu" ]] && echo -e "${Error} 本脚本不支持当前系统 ${release} !" && exit 1
-echo && echo -e " ocserv 一键安装管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix}
+
+while true; do
+  echo && echo -e " ocserv 一键安装管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix}
   -- original: Toyo | doub.io/vpnzy-7 --
   -- edited by github someone --
   
@@ -589,54 +591,62 @@ echo && echo -e " ocserv 一键安装管理脚本 ${Red_font_prefix}[v${sh_ver}]
  ${Green_font_prefix}9.${Font_color_suffix} 查看 日志信息
 ————————————
  ${Green_font_prefix}10.${Font_color_suffix} 修复 iptables
+ ${Green_font_prefix}q.${Font_color_suffix} 退出脚本
 ————————————" && echo
-if [[ -e ${file} ]]; then
-	check_pid
-	if [[ ! -z "${PID}" ]]; then
-		echo -e " 当前状态: ${Green_font_prefix}已安装${Font_color_suffix} 并 ${Green_font_prefix}已启动${Font_color_suffix}"
-	else
-		echo -e " 当前状态: ${Green_font_prefix}已安装${Font_color_suffix} 但 ${Red_font_prefix}未启动${Font_color_suffix}"
-	fi
-else
-	echo -e " 当前状态: ${Red_font_prefix}未安装${Font_color_suffix}"
-fi
-echo
-read -e -p " 请输入数字 [0-10]:" num
-case "$num" in
-	0)
-	Update_Shell
-	;;
-	1)
-	Install_ocserv
-	;;
-	2)
-	Uninstall_ocserv
-	;;
-	3)
-	Start_ocserv
-	;;
-	4)
-	Stop_ocserv
-	;;
-	5)
-	Restart_ocserv
-	;;
-	6)
-	Set_Pass
-	;;
-	7)
-	View_Config
-	;;
-	8)
-	Set_ocserv
-	;;
-	9)
-	View_Log
-	;;
- 	10)
-	Fix_Iptables
- 	;;
-	*)
-	echo "请输入正确数字 [0-10]"
-	;;
-esac
+
+  if [[ -e ${file} ]]; then
+    check_pid
+    if [[ ! -z "${PID}" ]]; then
+      echo -e " 当前状态: ${Green_font_prefix}已安装${Font_color_suffix} 并 ${Green_font_prefix}已启动${Font_color_suffix}"
+    else
+      echo -e " 当前状态: ${Green_font_prefix}已安装${Font_color_suffix} 但 ${Red_font_prefix}未启动${Font_color_suffix}"
+    fi
+  else
+    echo -e " 当前状态: ${Red_font_prefix}未安装${Font_color_suffix}"
+  fi
+  echo
+  read -e -p " 请输入数字 [0-10/q]:" num
+  case "$num" in
+    0)
+      Update_Shell
+      ;;
+    1)
+      Install_ocserv
+      ;;
+    2)
+      Uninstall_ocserv
+      ;;
+    3)
+      Start_ocserv
+      ;;
+    4)
+      Stop_ocserv
+      ;;
+    5)
+      Restart_ocserv
+      ;;
+    6)
+      Set_Pass
+      ;;
+    7)
+      View_Config
+      ;;
+    8)
+      Set_ocserv
+      ;;
+    9)
+      View_Log
+      ;;
+    10)
+      Fix_Iptables
+      ;;
+    q|Q)
+      echo "退出脚本"
+      break
+      ;;
+    *)
+      echo "请输入正确数字 [0-10/q]"
+      ;;
+  esac
+
+done

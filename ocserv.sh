@@ -216,11 +216,15 @@ Apply_hardening_defaults(){
 
 Install_ocserv(){
 	check_root
-	[[ -e ${file} ]] && echo -e "${Error} ocserv 已安装，请检查 !" && exit 1
+	[[ -e ${file} ]] && echo -e "${Error} ocserv 已安装，请检查 !" && return 1
 	echo -e "${Info} 开始安装/配置 依赖..."
 	Installation_dependency
 	echo -e "${Info} 开始下载/安装 配置文件..."
 	Download_ocserv
+	if [[ $? -ne 0 ]]; then
+		echo -e "${Error} ocserv 下载/安装失败"
+		return 1
+	fi
 	echo -e "${Info} 开始创建专用服务账号..."
 	Ensure_ocserv_user
 	echo -e "${Info} 开始应用安全默认配置..."
@@ -230,8 +234,14 @@ Install_ocserv(){
 	echo -e "${Info} 开始自签SSL证书..."
 	Generate_SSL
 	echo -e "${Info} 开始设置账号配置..."
-	Read_config
-	Set_Config
+	if ! Read_config; then
+		echo -e "${Error} 读取配置失败，停止安装"
+		return 1
+	fi
+	if ! Set_Config; then
+		echo -e "${Error} 设置配置失败"
+		return 1
+	fi
 	echo -e "${Info} 开始设置 iptables防火墙..."
 	Set_iptables
 	echo -e "${Info} 开始添加 iptables防火墙规则..."
@@ -240,6 +250,7 @@ Install_ocserv(){
 	Save_iptables
 	echo -e "${Info} 所有步骤 安装完毕，开始启动..."
 	Start_ocserv
+	return 0
 }
 Start_ocserv(){
 	check_installed_status
@@ -357,12 +368,20 @@ Set_Config(){
 	sed -i 's/udp-port = '"$(echo ${udp_port})"'/udp-port = '"$(echo ${set_udp_port})"'/g' ${conf}
 }
 Read_config(){
-	[[ ! -e ${conf} ]] && echo -e "${Error} ocserv 配置文件不存在 !" && exit 1
-	conf_text=$(cat ${conf}|grep -v '#')
+	if [[ ! -e ${conf} ]]; then
+		echo -e "${Error} ocserv 配置文件不存在 ! 尝试从 GitHub 下载..."
+		wget -q -O "${conf}" "https://raw.githubusercontent.com/backup-genius/ocserv/refs/heads/master/ocserv-all.conf"
+		if [[ ! -s ${conf} ]]; then
+			echo -e "${Error} 无法获取 ocserv 配置文件，检查网络或手动放置 ${conf}"
+			return 1
+		fi
+	fi
+	conf_text=$(grep -v '^#' ${conf})
 	tcp_port=$(echo -e "${conf_text}"|grep "tcp-port ="|awk -F ' = ' '{print $NF}')
 	udp_port=$(echo -e "${conf_text}"|grep "udp-port ="|awk -F ' = ' '{print $NF}')
 	max_same_clients=$(echo -e "${conf_text}"|grep "max-same-clients ="|awk -F ' = ' '{print $NF}')
 	max_clients=$(echo -e "${conf_text}"|grep "max-clients ="|awk -F ' = ' '{print $NF}')
+	return 0
 }
 List_User(){
 	[[ ! -e ${passwd_file} ]] && echo -e "${Error} ocserv 账号配置文件不存在 !" && exit 1

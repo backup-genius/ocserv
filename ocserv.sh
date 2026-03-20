@@ -79,13 +79,19 @@ Get_ip(){
 }
 
 Download_ocserv(){ 
-	mkdir "ocserv" && cd "ocserv"
+	# clean previous build dir first
+	rm -rf ocserv
+	mkdir -p "ocserv" && cd "ocserv"
 	wget "${ocserv_download_base}/ocserv-${ocserv_ver}.tar.xz"
-	[[ ! -s "ocserv-${ocserv_ver}.tar.xz" ]] && echo -e "${Error} ocserv 源码文件下载失败 !" && rm -rf "ocserv/" && rm -rf "ocserv-${ocserv_ver}.tar.xz" && exit 1
+	if [[ ! -s "ocserv-${ocserv_ver}.tar.xz" ]]; then
+		echo -e "${Error} ocserv 源码文件下载失败 !"
+		rm -rf "ocserv/" && rm -rf "ocserv-${ocserv_ver}.tar.xz"
+		return 1
+	fi
 	tar -xJf "ocserv-${ocserv_ver}.tar.xz" && cd "ocserv-${ocserv_ver}"
-	./configure
-	make
-	make install
+	./configure || { echo -e "${Error} ocserv configure 失败"; cd ..; rm -rf ../ocserv; return 1; }
+	make || { echo -e "${Error} ocserv make 失败"; cd ..; rm -rf ../ocserv; return 1; }
+	make install || { echo -e "${Error} ocserv make install 失败"; cd ..; rm -rf ../ocserv; return 1; }
 	cd .. && cd ..
 	rm -rf ocserv/
 
@@ -125,7 +131,7 @@ Download_ocserv(){
 	fi
 	return 0
 	else
-		echo -e "${Error} ocserv 编译安装失败，请检查！" && exit 1
+		echo -e "${Error} ocserv 编译安装失败，请检查！" && return 1
 	fi
 }
 
@@ -225,10 +231,13 @@ Install_ocserv(){
 	echo -e "${Info} 开始安装/配置 依赖..."
 	Installation_dependency
 	echo -e "${Info} 开始下载/安装 配置文件..."
-	Download_ocserv
-	if [[ $? -ne 0 ]]; then
-		echo -e "${Error} ocserv 下载/安装失败"
-		return 1
+	if ! Download_ocserv; then
+		if [[ -e ${file} ]]; then
+			echo -e "${Info} ocserv 二进制存在，继续后续步骤"
+		else
+			echo -e "${Error} ocserv 下载/安装失败"
+			return 1
+		fi
 	fi
 	echo -e "${Info} 开始创建专用服务账号..."
 	Ensure_ocserv_user
